@@ -130,11 +130,31 @@ STATUS: LOCKED
 
 ---
 
-## ⚡ 30-Second Quickstart
+### 🌟 Universal AI Agent Skill Install (AGY, Claude Code, Cursor, Windsurf, OpenCode)
 
-### Option 1: One-Line Shell Installer (macOS & Linux)
+Install the skill directly across all your AI agent runtimes with one command:
+
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rishiicreates/context-grill/main/install.sh | sh
+# Direct one-liner via curl:
+curl -fsSL https://raw.githubusercontent.com/rishiiicreates/context-grill/main/install-skill.sh | bash
+
+# Or instantly with npx:
+npx context-grill skill install
+
+# Or with native cgrill CLI:
+cgrill skill install --target all
+```
+
+Check installation status anytime:
+```bash
+cgrill skill status
+```
+
+---
+
+### Option 1: Native CLI Installer (macOS & Linux)
+```bash
+curl -fsSL https://raw.githubusercontent.com/rishiiicreates/context-grill/main/install.sh | sh
 ```
 
 ### Option 2: Cargo (from crates.io or GitHub)

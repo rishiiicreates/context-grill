@@ -1,4 +1,5 @@
 mod mcp;
+mod skill_installer;
 
 use cgrill_core::{
     analyze_prompt, generate_questions, scan_environment, verify_patch, Contract,
@@ -76,6 +77,36 @@ enum Commands {
 
     /// Run as a native stdio JSON-RPC Model Context Protocol (MCP) server
     Mcp,
+
+    /// Install, inspect, or manage the context-grill Agent Skill across AGY, Claude Code, Cursor, Windsurf, and OpenCode
+    Skill {
+        #[command(subcommand)]
+        action: SkillAction,
+    },
+}
+
+#[derive(Subcommand)]
+enum SkillAction {
+    /// Install context-grill skill to AGY, Claude Code, Cursor, Windsurf, and OpenCode
+    Install {
+        /// Target specific platform: "all", "agy", "claude", "cursor", "windsurf", "opencode"
+        #[arg(short, long, default_value = "all")]
+        target: String,
+
+        /// Install to current workspace project instead of user home
+        #[arg(short, long)]
+        local: bool,
+    },
+
+    /// Show current skill installation status across all platforms
+    Status,
+
+    /// Uninstall context-grill skill from platforms
+    Uninstall {
+        /// Target specific platform: "all", "agy", "claude", "cursor", "windsurf", "opencode"
+        #[arg(short, long, default_value = "all")]
+        target: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -329,5 +360,23 @@ fn main() {
                 std::process::exit(1);
             }
         }
+
+        Commands::Skill { action } => match action {
+            SkillAction::Install { target, local } => {
+                if let Err(e) = skill_installer::install_skill(&target, local) {
+                    eprintln!("Installation error: {}", e);
+                    std::process::exit(1);
+                }
+            }
+            SkillAction::Status => {
+                skill_installer::skill_status();
+            }
+            SkillAction::Uninstall { target } => {
+                if let Err(e) = skill_installer::uninstall_skill(&target) {
+                    eprintln!("Uninstall error: {}", e);
+                    std::process::exit(1);
+                }
+            }
+        },
     }
 }
