@@ -180,7 +180,8 @@ fn main() {
                 if !health.active_ports.is_empty() {
                     println!("\nActive Listening Ports:");
                     for p in &health.active_ports {
-                        println!("  • Port {}: {} (PID: {:?})", p.port, p.process_name, p.pid);
+                        let pid_str = p.pid.map(|pid| pid.to_string()).unwrap_or_else(|| "unknown".to_string());
+                        println!("  • Port {}: {} (PID: {})", p.port, p.process_name, pid_str);
                     }
                 } else {
                     println!("\nActive Listening Ports: None detected on local standard dev ports.");
