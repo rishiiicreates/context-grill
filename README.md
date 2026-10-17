@@ -24,15 +24,80 @@ Open [`terminal_preview.html`](terminal_preview.html) in your browser to explore
 
 ---
 
-## 💥 The Problem: The 5 Silent AI Coding Killers
+## 💥 The Real Problem: Why Autonomous AI Agents Destroy Production Codebases
 
-Autonomous coding agents (Claude, GPT-4, Cursor Composer) possess formidable generation speed, but they share five catastrophic failure modes when working on production codebases:
+Autonomous coding agents (Claude, GPT-4, Cursor Composer, Windsurf) possess extraordinary code generation velocity. However, when deployed into real-world production repositories, they frequently go rogue, introduce subtle regressions, and destroy working features.
 
-1. **Silent Assumptions & Over-Engineering:** A prompt like *"Clean up auth"* causes an agent to hallucinate an unprompted hexagonal architecture, invent repository patterns, or mutate working database models.
-2. **Runtime State Blindness:** An agent spends 45 minutes editing working source code to fix a bug, completely blind to the fact that an old daemon is running on port 3000 or that `.next/cache` is serving stale compiled chunks.
-3. **Line Drift & Bracket Corruption:** When an agent modifies a file in Step 2, the file's line count shifts. In Step 3, the agent uses stale line numbers, clips closing braces, and corrupts the file's AST syntax.
-4. **Blast Radius Violations:** Asked to fix a button's padding, the agent mutates 14 unrelated files across the workspace, including lockfiles and global database configs.
-5. **Context Amnesia in Long Loops:** Past Step 15 of an autonomous loop, token compaction wipes early instructions. The agent forgets negative constraints (e.g., *"do not touch user schema"*) and introduces breaking regressions.
+This is not a model intelligence problem. It is a **context, boundary, and runtime state problem**. LLMs operate in an isolated conversational vacuum where five existential failure modes routinely corrupt software engineering workflows:
+
+---
+
+### 1. The Agreeableness Trap & The Hallucination of Completeness
+**The Symptom:** You ask an agent to *"clean up auth"* or *"make the API faster"*, expecting a 5-line configuration tweak. Instead, you wake up to a 600-line pull request that rewrites your database schema, introduces an unprompted hexagonal architecture, and breaks your authentication flow.
+
+**The Underlying Mechanics:**
+Large Language Models are trained via Reinforcement Learning from Human Feedback (RLHF) to be helpful, polite, and eager to answer. When a human developer gives a vague 4-word prompt, a senior human engineer naturally pauses and asks clarifying questions:
+- *"Which endpoints are slow?"*
+- *"What is our latency budget?"*
+- *"Are we allowed to alter public API signatures or user models?"*
+- *"Do you want a surgical one-liner hotfix or a structural refactor?"*
+
+An AI agent has no biological restraint. It treats silence as permission. Instead of asking what **not** to touch, the agent fills the prompt's missing negative constraints with speculative hallucinations. It invents patterns, creates unwanted repository wrappers, and mutates working files simply because nothing mechanically stopped it from guessing.
+
+---
+
+### 2. Runtime State Blindness: Chasing "Ghost Bugs"
+**The Symptom:** An agent spends 45 minutes modifying working source code, adding layers of defensive null checks, and rewriting endpoints to solve a 500 error — only to discover the endpoint was completely fine, and a zombie Node process was holding port 3000.
+
+**The Underlying Mechanics:**
+AI agents excel at inspecting static syntax trees (ASTs), but they are completely blind to the dynamic host operating system:
+- **Port Collisions (`EADDRINUSE`):** An earlier background test or crashed dev server left an orphaned PID holding port 3000, 5173, or 8080. When the agent tries to test its new code, it gets connection refused or port collision errors. Instead of running `lsof` and killing the dead daemon, the agent assumes your application logic is broken and begins mutating `vite.config.ts`, `package.json`, or environment variables.
+- **Stale Build Caches:** `.next/cache`, `target/debug`, `dist/`, or `.turbo` is serving a compiled artifact from 30 minutes ago. The agent edits a file, runs a test, sees the old behavior, and concludes its logic failed. It enters a death-spiral of rewriting perfectly valid code to bypass a bug that only exists in a stale cache directory.
+- **Dirty Git Tree Destruction:** A developer leaves uncommitted work or experimental stashes in their working tree. The agent runs a broad reset or modifies overlapping lines, permanently destroying the human's uncommitted work.
+
+---
+
+### 3. Line Drift & The AST Delimiter Apocalypse
+**The Symptom:** A multi-turn refactor works smoothly for the first two edits. On the third edit, the compiler abruptly throws a catastrophic syntax error: `SyntaxError: Unexpected token '}'` or `error: unmatched closing delimiter`. The agent attempts to fix the syntax error on the wrong line, cascading the entire file into unrecoverable corruption.
+
+**The Underlying Mechanics:**
+When an agent edits a 1,000-line file across multiple turns:
+1. In Step 1, the agent inserts 10 lines at line 50. The file now has 1,010 lines.
+2. In Step 2, the agent uses its original prompt memory to replace lines 150-160. But those lines have now physically shifted to lines 160-170!
+3. The agent applies the patch blindly against lines 150-160. It slices directly through an adjacent function body, clips an essential closing curly brace `}`, or drops a closing parenthesis `)`.
+4. The file no longer forms a valid parse tree. If the tool applies this edit to disk without pre-flight delimiter validation, the file is corrupted.
+
+---
+
+### 4. Blast Radius Violations: The Ripple Effect of Unconstrained Scope
+**The Symptom:** Asked to *"Fix the padding on the checkout button"*, the agent modifies 14 unrelated files across the workspace, touches `tailwind.config.js`, updates package dependencies, and mutates core database models.
+
+**The Underlying Mechanics:**
+Without an explicit **Ground Truth Contract**, an agent's search algorithms naturally fan out across import graphs:
+```
+CheckoutButton.tsx ──► Button.tsx ──► ThemeContext.tsx ──► tailwind.config.js ──► package.json
+```
+The agent explores dependencies and decides that to fix the button padding "properly", it should standardize the global theme spacing tokens. That leads to modifying the global config, which breaks button alignment across 12 other screens. Unconstrained blast radius is the #1 reason AI coding changes fail code review in production teams.
+
+---
+
+### 5. Turn-15 Amnesia: Context Compaction Regressions
+**The Symptom:** At the start of a conversation, you explicitly instruct the agent: *"Whatever you do, do not touch the legacy billing webhook in `webhooks/stripe.ts`"*. Twenty turns later, during an extensive refactor, the agent happily modifies `webhooks/stripe.ts` and breaks billing.
+
+**The Underlying Mechanics:**
+LLM context windows are not infinite. Long agent sessions with tool outputs, file contents, and compiler errors inevitably trigger **context window compaction** or truncation past Step 15. The model's attention mechanism prioritizes recent tool outputs, and early negative constraints are lost to token compaction. Unless critical invariants are permanently pinned into context on every single turn, regressions are mathematically inevitable.
+
+---
+
+## 🛡️ The Context Grill Solution: Mechanically Enforced Guardrails
+
+Context Grill (`cgrill`) solves these five failure modes not with wishful prompting, but through **deterministic native software engineering invariants** running in &lt;5ms of Rust:
+
+1. **The Socratic Gate (`cgrill scan`):** Intercepts ambiguous prompts before code is generated. Computes an Ambiguity Score (0-100) and physically forces the agent to extract the developer's negative scope and diff boundaries.
+2. **The Runtime Inspector (`cgrill env`):** Audits active listening sockets, zombie daemons, dirty git status, and stale cache timestamps in 20ms before any bug hypothesis is formed.
+3. **The Ground Truth Contract (`cgrill contract`):** Enforces an immutable scope declaration (`.cgrill/contract.json`). If an agent attempts to touch a file outside `allowed_write_scope` or inside `forbidden_scope`, the write is rejected with exit code `1`.
+4. **The Patch & Line-Drift Guard (`cgrill patch-guard`):** Validates line anchors against live disk, calculates shifted line offsets, and verifies delimiter balance (`{}`, `()`, `[]`, `""`) before allowing any mutation to touch the filesystem.
+5. **The Memory Pin (`cgrill contract pin`):** Generates a compact, 6-line invariant block injected into every agent step, completely immunizing the agent against turn-15 context compaction amnesia.
 
 ---
 
