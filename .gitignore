@@ -1,0 +1,23 @@
+# Rust artifacts
+target/
+**/*.rs.bk
+Cargo.lock.bak
+
+# Node & packaging
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+dist/
+release-assets/
+*.tgz
+
+# OS & editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Local cgrill runtime state
+.cgrill/

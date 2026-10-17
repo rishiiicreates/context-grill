@@ -1,0 +1,49 @@
+{
+  "name": "context-grill",
+  "version": "0.1.0",
+  "description": "Ultra-fast native Rust reality check, ambiguity scanner, and patch guard for AI coding agents",
+  "main": "bin/cgrill.js",
+  "bin": {
+    "context-grill": "bin/cgrill.js",
+    "cgrill": "bin/cgrill.js",
+    "context-grill-mcp": "bin/mcp-server.js",
+    "cgrill-mcp": "bin/mcp-server.js"
+  },
+  "scripts": {
+    "test": "node bin/cgrill.js --help"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rishiicreates/context-grill.git"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "coding-agent",
+    "context-grill",
+    "cgrill",
+    "ambiguity-scanner",
+    "patch-guard",
+    "socratic-interview",
+    "developer-tools",
+    "claude-code",
+    "antigravity",
+    "cursor"
+  ],
+  "author": "Rishii <rishiicreates@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/rishiicreates/context-grill/issues"
+  },
+  "homepage": "https://github.com/rishiicreates/context-grill#readme",
+  "files": [
+    "bin",
+    "SKILL.md",
+    "map.md",
+    "README.md",
+    "install.sh"
+  ],
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

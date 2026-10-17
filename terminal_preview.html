@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Context Grill (cgrill) — Interactive Terminal Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #090a0f;
+      --card-bg: rgba(18, 20, 29, 0.85);
+      --term-bg: #0d1117;
+      --term-border: rgba(255, 255, 255, 0.12);
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --accent-cyan: #38bdf8;
+      --accent-purple: #a855f7;
+      --accent-green: #22c55e;
+      --accent-amber: #f59e0b;
+      --accent-red: #ef4444;
+      --glow-cyan: rgba(56, 189, 248, 0.18);
+      --glow-purple: rgba(168, 85, 247, 0.18);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 40px 20px 60px;
+      position: relative;
+      overflow-x: hidden;
+      background-image: 
+        radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.12) 0%, transparent 50%),
+        radial-gradient(circle at 85% 20%, rgba(168, 85, 247, 0.1) 0%, transparent 40%),
+        radial-gradient(circle at 15% 70%, rgba(34, 197, 94, 0.08) 0%, transparent 45%);
+    }
+
+    .header {
+      text-align: center;
+      max-width: 900px;
+      margin-bottom: 32px;
+    }
+
+    .badge-bar {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 6px 14px;
+      border-radius: 9999px;
+      margin-bottom: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--accent-cyan);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(10px);
+    }
+
+    .badge-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      box-shadow: 0 0 10px var(--accent-green);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.9); }
+    }
+
+    h1 {
+      font-size: clamp(32px, 5vw, 48px);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      margin-bottom: 14px;
+      background: linear-gradient(135deg, #ffffff 30%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    p.subtitle {
+      font-size: 17px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    .terminal-container {
+      width: 100%;
+      max-width: 1000px;
+      background: var(--term-bg);
+      border: 1px solid var(--term-border);
+      border-radius: 14px;
+      box-shadow: 
+        0 20px 50px -10px rgba(0, 0, 0, 0.7),
+        0 0 0 1px rgba(255, 255, 255, 0.06),
+        0 0 40px var(--glow-cyan);
+      overflow: hidden;
+      backdrop-filter: blur(20px);
+      transition: box-shadow 0.3s ease;
+    }
+
+    .terminal-container:hover {
+      box-shadow: 
+        0 25px 60px -10px rgba(0, 0, 0, 0.8),
+        0 0 0 1px rgba(255, 255, 255, 0.1),
+        0 0 50px var(--glow-purple);
+    }
+
+    /* Terminal Title Bar */
+    .terminal-titlebar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 18px;
+      background: rgba(22, 27, 34, 0.95);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      user-select: none;
+    }
+
+    .window-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .control-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+      transition: transform 0.15s ease;
+    }
+
+    .control-dot.red { background: #ff5f56; border: 1px solid #e0443e; }
+    .control-dot.yellow { background: #ffbd2e; border: 1px solid #dea123; }
+    .control-dot.green { background: #27c93f; border: 1px solid #1aab29; }
+
+    .control-dot:hover {
+      transform: scale(1.15);
+    }
+
+    .terminal-title {
+      font-family: 'Fira Code', monospace;
+      font-size: 13px;
+      color: #8b949e;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pill-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-family: 'Fira Code', monospace;
+      background: rgba(34, 197, 94, 0.12);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      color: #4ade80;
+    }
+
+    /* Navigation Tabs */
+    .tab-bar {
+      display: flex;
+      gap: 4px;
+      padding: 8px 14px;
+      background: rgba(13, 17, 23, 0.9);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      color: #8b949e;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .tab-btn:hover {
+      color: #e6edf3;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .tab-btn.active {
+      color: #ffffff;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.15);
+    }
+
+    .tab-btn .cmd-tag {
+      font-family: 'Fira Code', monospace;
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #94a3b8;
+    }
+
+    .tab-btn.active .cmd-tag {
+      background: rgba(56, 189, 248, 0.25);
+      color: #38bdf8;
+    }
+
+    /* Terminal Body */
+    .terminal-body {
+      padding: 24px;
+      min-height: 520px;
+      font-family: 'Fira Code', monospace;
+      font-size: 13.5px;
+      line-height: 1.65;
+      color: #c9d1d9;
+      position: relative;
+    }
+
+    .tab-pane {
+      display: none;
+      animation: fadeIn 0.25s ease-out forwards;
+    }
+
+    .tab-pane.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* CLI Prompt Styling */
+    .cli-prompt-line {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .prompt-prefix {
+      color: #4ade80;
+      font-weight: 600;
+      user-select: none;
+    }
+
+    .prompt-dir {
+      color: #38bdf8;
+      font-weight: 500;
+      user-select: none;
+    }
+
+    .prompt-git {
+      color: #f472b6;
+      font-size: 12px;
+      user-select: none;
+    }
+
+    .prompt-cmd {
+      color: #ffffff;
+      font-weight: 600;
+    }
+
+    .prompt-latency {
+      margin-left: auto;
+      font-size: 11px;
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      padding: 2px 8px;
+      border-radius: 9999px;
+    }
+
+    /* Output Elements */
+    .banner-box {
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 16px;
+      background: rgba(255, 255, 255, 0.02);
+      margin-bottom: 16px;
+    }
+
+    .banner-title {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .score-badge-high {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #f87171;
+      font-weight: 700;
+    }
+
+    .score-badge-low {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(34, 197, 94, 0.2);
+      border: 1px solid rgba(34, 197, 94, 0.4);
+      color: #4ade80;
+      font-weight: 700;
+    }
+
+    .halt-notice {
+      background: rgba(239, 68, 68, 0.1);
+      border-left: 3px solid #ef4444;
+      padding: 10px 14px;
+      border-radius: 0 6px 6px 0;
+      color: #fca5a5;
+      font-size: 13px;
+      margin: 14px 0;
+    }
+
+    .question-card {
+      background: rgba(22, 27, 34, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 14px;
+      margin: 12px 0;
+      transition: border-color 0.2s;
+    }
+
+    .question-card:hover {
+      border-color: rgba(56, 189, 248, 0.4);
+    }
+
+    .q-title {
+      color: #38bdf8;
+      font-weight: 600;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .q-text {
+      color: #f0f6fc;
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+
+    .q-hint {
+      color: #8b949e;
+      font-size: 12px;
+      margin-bottom: 8px;
+      font-style: italic;
+    }
+
+    .q-options {
+      list-style-type: none;
+      padding-left: 8px;
+    }
+
+    .q-options li {
+      color: #cbd5e1;
+      font-size: 12.5px;
+      line-height: 1.6;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .q-options li::before {
+      content: "•";
+      color: #a855f7;
+    }
+
+    /* Colors and Syntax */
+    .c-cyan { color: #38bdf8; }
+    .c-green { color: #4ade80; }
+    .c-purple { color: #c084fc; }
+    .c-amber { color: #fbbf24; }
+    .c-red { color: #f87171; }
+    .c-muted { color: #8b949e; }
+    .c-bold { font-weight: 700; }
+
+    /* Action bar */
+    .action-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 24px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 12px;
+      color: #8b949e;
+    }
+
+    .action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #e6edf3;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .action-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+    }
+
+    /* Diff View inside Terminal */
+    .diff-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+      margin: 12px 0;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .diff-table th, .diff-table td {
+      padding: 6px 12px;
+      text-align: left;
+    }
+
+    .diff-table th {
+      background: rgba(255, 255, 255, 0.04);
+      color: #8b949e;
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .diff-table td {
+      border-top: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .sub-switch {
+      display: inline-flex;
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 6px;
+      padding: 2px;
+      margin-bottom: 16px;
+    }
+
+    .sub-switch button {
+      background: transparent;
+      border: none;
+      color: #8b949e;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      padding: 4px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .sub-switch button.active {
+      background: rgba(56, 189, 248, 0.2);
+      color: #38bdf8;
+      font-weight: 600;
+    }
+
+    /* Features footer grid */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      width: 100%;
+      max-width: 1000px;
+      margin-top: 36px;
+    }
+
+    .feature-card {
+      background: rgba(18, 20, 29, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 18px;
+      backdrop-filter: blur(10px);
+    }
+
+    .feature-card h3 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #f0f6fc;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .feature-card p {
+      font-size: 13px;
+      color: #8b949e;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="badge-bar">
+      <span class="badge-dot"></span>
+      <span>CONTEXT-GRILL v0.1.0</span>
+      <span style="color: rgba(255,255,255,0.3)">|</span>
+      <span>NATIVE RUST ENGINE</span>
+      <span style="color: rgba(255,255,255,0.3)">|</span>
+      <span>&lt; 5ms LATENCY</span>
+    </div>
+    <h1>The Reality-Check Shield for AI Coding Agents</h1>
+    <p class="subtitle">
+      Stops autonomous agents from over-engineering abstractions, hallucinating line anchors, mutating working files, and ignoring dirty runtime states.
+    </p>
+  </div>
+
+  <div class="terminal-container">
+    <!-- Terminal Titlebar -->
+    <div class="terminal-titlebar">
+      <div class="window-controls">
+        <span class="control-dot red" title="Close"></span>
+        <span class="control-dot yellow" title="Minimize"></span>
+        <span class="control-dot green" title="Maximize"></span>
+      </div>
+      <div class="terminal-title">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-cyan)"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+        <span>cgrill — context-grill preview (zsh)</span>
+      </div>
+      <div class="pill-status">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+        <span>INVARIANTS ACTIVE</span>
+      </div>
+    </div>
+
+    <!-- Tab Bar -->
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('scan')">
+        <span class="cmd-tag">cgrill scan</span>
+        <span>1. Ambiguity & Socratic Gate</span>
+      </button>
+      <button class="tab-btn" onclick="switchTab('env')">
+        <span class="cmd-tag">cgrill env</span>
+        <span>2. Runtime Reality Inspector</span>
+      </button>
+      <button class="tab-btn" onclick="switchTab('patch')">
+        <span class="cmd-tag">cgrill patch-guard</span>
+        <span>3. Line Drift & Patch Guard</span>
+      </button>
+    </div>
+
+    <!-- Terminal Content Area -->
+    <div class="terminal-body">
+      
+      <!-- TAB 1: SCAN -->
+      <div id="pane-scan" class="tab-pane active">
+        <div class="cli-prompt-line">
+          <span class="prompt-prefix">❯</span>
+          <span class="prompt-dir">~/workspace/payment-service</span>
+          <span class="prompt-git">git:(main)</span>
+          <span class="prompt-cmd">cgrill scan "refactor auth logic"</span>
+          <span class="prompt-latency">⚡ 3.2ms</span>
+        </div>
+
+        <div class="banner-box">
+          <div class="banner-title c-red">
+            <span>=== CGRILL AMBIGUITY REPORT ===</span>
+          </div>
+          <div><span class="c-muted">Target Prompt:</span> <span class="c-bold">"refactor auth logic"</span></div>
+          <div><span class="c-muted">Ambiguity Score:</span> <span class="score-badge-high">100 / 100</span> (HIGH RISK)</div>
+          <div><span class="c-muted">Vague Terms:</span> <span class="c-amber">refactor</span> (triggers unconstrained architecture drift)</div>
+          <div style="margin-top: 4px;"><span class="c-muted">Missing Dimensions:</span> <span class="c-red">Negative Scope (+30)</span>, <span class="c-red">Diff Appetite (+25)</span>, <span class="c-red">Verification Proof (+25)</span>, <span class="c-red">Runtime State (+20)</span></div>
+        </div>
+
+        <div class="halt-notice">
+          <strong>[INVARIANT 1 TRIPPED]</strong> Ambiguity &gt; 20. Coding agent is strictly blocked from disk mutation until Socratic questions are answered:
+        </div>
+
+        <div class="question-card">
+          <div class="q-title">
+            <span>1. [Negative Scope & Boundary]</span>
+          </div>
+          <div class="q-text">What files, modules, or existing behaviors must strictly remain untouched?</div>
+          <div class="q-hint">Context: Prevent the agent from touching existing working code while handling 'refactor auth logic'.</div>
+          <ul class="q-options">
+            <li>Only touch the exact target file and its unit test; leave all models and migrations intact</li>
+            <li>Do not alter public API signatures or external client contracts</li>
+            <li>Do not modify configuration, lockfiles, or dependency manifests</li>
+          </ul>
+        </div>
+
+        <div class="question-card">
+          <div class="q-title">
+            <span>2. [Diff Appetite & Blast Radius]</span>
+          </div>
+          <div class="q-text">What scale of code change are you expecting for this task?</div>
+          <div class="q-hint">Context: Restrain the agent from over-engineering or creating unwanted abstractions.</div>
+          <ul class="q-options">
+            <li>Surgical hotfix (&lt; 20 lines) — change the bare minimum to solve the issue</li>
+            <li>Targeted refactor (20-100 lines) — clean up the immediate function without adding new patterns</li>
+            <li>Architecture rewrite — create new modules, interfaces, and abstractions</li>
+          </ul>
+        </div>
+
+        <div class="question-card">
+          <div class="q-title">
+            <span>3. [Proof of Completion]</span>
+          </div>
+          <div class="q-text">What exact command or evidence will prove this task is complete?</div>
+          <div class="q-hint">Context: No completion without executed evidence. Avoid self-review or speculative completion.</div>
+          <ul class="q-options">
+            <li>A specific unit/integration test command passing (e.g. <code>cargo test --test auth</code>)</li>
+            <li>Clean type-check / linter pass with zero warnings</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- TAB 2: ENV -->
+      <div id="pane-env" class="tab-pane">
+        <div class="cli-prompt-line">
+          <span class="prompt-prefix">❯</span>
+          <span class="prompt-dir">~/workspace/payment-service</span>
+          <span class="prompt-git">git:(main)</span>
+          <span class="prompt-cmd">cgrill env</span>
+          <span class="prompt-latency">⚡ 4.1ms</span>
+        </div>
+
+        <div class="banner-box">
+          <div class="banner-title c-cyan">
+            <span>=== CGRILL RUNTIME REALITY CHECK ===</span>
+          </div>
+          <div><span class="c-muted">Target Directory:</span> <span>/Users/rishii/workspace/payment-service</span></div>
+          <div><span class="c-muted">Git Repository:</span> <span class="c-green">Yes (branch: main)</span></div>
+          <div><span class="c-muted">Working Tree Dirty:</span> <span class="c-amber">YES (2 modified, 1 untracked)</span></div>
+        </div>
+
+        <div style="margin: 16px 0;">
+          <div class="c-bold c-cyan" style="margin-bottom: 8px;">Active Listening Ports & Daemons:</div>
+          <table class="diff-table">
+            <thead>
+              <tr>
+                <th>Port</th>
+                <th>Process / Daemon</th>
+                <th>PID</th>
+                <th>Risk Assessment</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="c-bold c-amber">3000</td>
+                <td>node (next-dev)</td>
+                <td>69665</td>
+                <td class="c-amber">Active Dev Server — Do not kill or bind</td>
+              </tr>
+              <tr>
+                <td class="c-bold c-green">5432</td>
+                <td>postgres</td>
+                <td>994</td>
+                <td class="c-green">Database Listener — Operational</td>
+              </tr>
+              <tr>
+                <td class="c-bold c-green">6379</td>
+                <td>redis-server</td>
+                <td>1052</td>
+                <td class="c-green">Cache Store — Operational</td>
+              </tr>
+              <tr>
+                <td class="c-bold c-purple">11434</td>
+                <td>ollama</td>
+                <td>1080</td>
+                <td class="c-muted">Local Model Server</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div style="margin: 16px 0;">
+          <div class="c-bold c-amber" style="margin-bottom: 8px;">Stale Build Caches:</div>
+          <div style="background: rgba(245, 158, 11, 0.08); border-left: 3px solid #f59e0b; padding: 8px 12px; border-radius: 0 4px 4px 0; margin-bottom: 6px;">
+            <span class="c-bold">.next/cache</span>: Stale by 1h 22m (source files modified after last build timestamp).
+          </div>
+        </div>
+
+        <div style="margin: 16px 0;">
+          <div class="c-bold c-red" style="margin-bottom: 8px;">Runtime Pre-Flight Warnings:</div>
+          <div style="color: #fca5a5; font-size: 13px; line-height: 1.6;">
+            <div>! Working tree has uncommitted edits. Agents must NOT run <code>git reset --hard</code> or <code>git stash</code>.</div>
+            <div>! Port 3000 is occupied. Running another server instance will throw <code>EADDRINUSE</code>.</div>
+            <div>! Stale <code>.next</code> cache may serve phantom modules during browser verification.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: PATCH GUARD -->
+      <div id="pane-patch" class="tab-pane">
+        <div class="sub-switch">
+          <button id="btn-scenario-drift" class="active" onclick="switchPatchScenario('drift')">Scenario A: Line Drift & Bracket Bug (Blocked)</button>
+          <button id="btn-scenario-pass" onclick="switchPatchScenario('pass')">Scenario B: Valid Patch (Verified Pass)</button>
+        </div>
+
+        <!-- Scenario A: Drift & Failure -->
+        <div id="scenario-drift">
+          <div class="cli-prompt-line">
+            <span class="prompt-prefix">❯</span>
+            <span class="prompt-dir">~/workspace/payment-service</span>
+            <span class="prompt-cmd">cgrill patch-guard --file src/auth.rs --start 42 --end 48 ...</span>
+            <span class="prompt-latency">⚡ 2.8ms</span>
+          </div>
+
+          <div class="halt-notice" style="background: rgba(239, 68, 68, 0.15); border-left-color: #ef4444;">
+            <div style="font-size: 14px; font-weight: 700; color: #f87171; margin-bottom: 4px;">
+              ✖ FAIL: Patch verification failed. Mutation blocked before touching disk.
+            </div>
+            <div style="color: #fecaca; margin-bottom: 4px;">
+              <strong>Line drift detected!</strong> Target content was not found at lines [42-48]. Target was found at lines [54-60] (Drift: +12 lines from prior edit).
+            </div>
+            <div style="color: #fecaca;">
+              <strong>Delimiter mismatch:</strong> Curly braces mismatched: target net delta 0, replacement net delta +1 (Unclosed <code>{</code> on line 47).
+            </div>
+          </div>
+
+          <div style="margin-top: 14px;">
+            <div class="c-bold c-cyan" style="margin-bottom: 6px;">Machine Diagnostic JSON (--json):</div>
+            <pre style="background: rgba(0, 0, 0, 0.4); padding: 12px; border-radius: 6px; font-size: 12px; color: #a5d6ff; border: 1px solid rgba(255, 255, 255, 0.08); overflow-x: auto;">{
+  "valid": false,
+  "drift_detected": true,
+  "suggested_start_line": 54,
+  "suggested_end_line": 60,
+  "delimiter_balanced": false,
+  "delimiter_mismatch_detail": "Curly braces mismatched: target net delta 0, replacement net delta 1",
+  "error_message": "Target content was not found at lines [42-48]. Line drift detected."
+}</pre>
+          </div>
+          <div style="margin-top: 10px; color: #8b949e; font-size: 12px;">
+            🛡️ Result: Agent receives exact auto-corrected line range <code>[54-60]</code> and brace syntax error before any file corruption occurs.
+          </div>
+        </div>
+
+        <!-- Scenario B: Pass -->
+        <div id="scenario-pass" style="display: none;">
+          <div class="cli-prompt-line">
+            <span class="prompt-prefix">❯</span>
+            <span class="prompt-dir">~/workspace/payment-service</span>
+            <span class="prompt-cmd">cgrill patch-guard --file src/auth.rs --start 54 --end 60 ...</span>
+            <span class="prompt-latency">⚡ 1.9ms</span>
+          </div>
+
+          <div style="background: rgba(34, 197, 94, 0.12); border-left: 3px solid #22c55e; padding: 14px; border-radius: 0 6px 6px 0; color: #86efac; margin-bottom: 14px;">
+            <div style="font-weight: 700; font-size: 14px; margin-bottom: 4px;">
+              ✔ PASS: Patch is valid, line anchors verified, and delimiters balanced.
+            </div>
+            <div style="font-size: 12.5px; color: #bbf7d0;">
+              • Line anchors [54-60] match exact buffer on disk.<br>
+              • Pre-context (lines 51-53) and Post-context (lines 61-63) verified.<br>
+              • Delimiter stack invariant: Curly { }, Parentheses ( ), Brackets [ ], Quotes " ' all balanced.<br>
+              • File path 'src/auth.rs' verified inside contract.allowed_write_scope.
+            </div>
+          </div>
+
+          <div class="c-bold c-cyan" style="margin-bottom: 6px;">Machine Diagnostic JSON (--json):</div>
+          <pre style="background: rgba(0, 0, 0, 0.4); padding: 12px; border-radius: 6px; font-size: 12px; color: #86efac; border: 1px solid rgba(255, 255, 255, 0.08); overflow-x: auto;">{
+  "valid": true,
+  "drift_detected": false,
+  "suggested_start_line": null,
+  "suggested_end_line": null,
+  "delimiter_balanced": true,
+  "delimiter_mismatch_detail": null,
+  "error_message": null
+}</pre>
+        </div>
+      </div>
+
+      <!-- Action Bar -->
+      <div class="action-bar">
+        <div>
+          <span>Tip: Press </span><kbd style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px;">1</kbd>, <kbd style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px;">2</kbd>, or <kbd style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px;">3</kbd><span> to switch views</span>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button class="action-btn" onclick="copyActiveCommand()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            <span id="copy-btn-text">Copy Command</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Highlights Grid -->
+  <div class="feature-grid">
+    <div class="feature-card">
+      <h3>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+        <span>The Socratic Gate</span>
+      </h3>
+      <p>Halts on vague prompts like "optimize" or "fix auth". Asks the 4 questions that pin negative boundaries and blast radius.</p>
+    </div>
+    <div class="feature-card">
+      <h3>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+        <span>Runtime Reality Check</span>
+      </h3>
+      <p>Checks listening ports, background daemons, dirty git status, and stale build caches in under 4ms before hypotheses form.</p>
+    </div>
+    <div class="feature-card">
+      <h3>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+        <span>Patch & AST Guard</span>
+      </h3>
+      <p>Guarantees line anchors and delimiter stacks match on disk. Catches off-by-one line drift and clipped syntax immediately.</p>
+    </div>
+  </div>
+
+  <script>
+    let activeTabId = 'scan';
+
+    function switchTab(tabId) {
+      activeTabId = tabId;
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+
+      const btnIndex = tabId === 'scan' ? 0 : tabId === 'env' ? 1 : 2;
+      document.querySelectorAll('.tab-btn')[btnIndex].classList.add('active');
+      document.getElementById('pane-' + tabId).classList.add('active');
+    }
+
+    function switchPatchScenario(scen) {
+      document.getElementById('btn-scenario-drift').classList.toggle('active', scen === 'drift');
+      document.getElementById('btn-scenario-pass').classList.toggle('active', scen === 'pass');
+
+      document.getElementById('scenario-drift').style.display = scen === 'drift' ? 'block' : 'none';
+      document.getElementById('scenario-pass').style.display = scen === 'pass' ? 'block' : 'none';
+    }
+
+    function copyActiveCommand() {
+      let cmd = 'cgrill scan "refactor auth logic"';
+      if (activeTabId === 'env') {
+        cmd = 'cgrill env';
+      } else if (activeTabId === 'patch') {
+        cmd = 'cgrill patch-guard --file src/auth.rs --start 54 --end 60 --target "..." --replacement "..."';
+      }
+
+      navigator.clipboard.writeText(cmd).then(() => {
+        const btnText = document.getElementById('copy-btn-text');
+        btnText.innerText = 'Copied!';
+        setTimeout(() => {
+          btnText.innerText = 'Copy Command';
+        }, 1500);
+      });
+    }
+
+    // Keyboard navigation
+    window.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.key === '1') switchTab('scan');
+      if (e.key === '2') switchTab('env');
+      if (e.key === '3') switchTab('patch');
+    });
+  </script>
+</body>
+</html>

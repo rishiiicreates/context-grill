@@ -1,0 +1,12 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/cgrill-core",
+    "crates/cgrill-cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Rishii <rishiicreates@gmail.com>"]
+license = "MIT"
