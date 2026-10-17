@@ -1,0 +1,39 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "context-grill"
+version = "0.1.0"
+description = "Universal AI agent skill, Socratic ambiguity scanner, and line-drift shield for Antigravity, Claude Code, Cursor, and Windsurf"
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "Rishii", email = "rishiicreates@gmail.com" }]
+requires-python = ">=3.9"
+dependencies = []
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+keywords = ["ai", "agents", "antigravity", "claude-code", "cursor", "mcp", "skill", "developer-tools"]
+
+[project.urls]
+Homepage = "https://github.com/rishiiicreates/context-grill"
+Repository = "https://github.com/rishiiicreates/context-grill"
+Issues = "https://github.com/rishiiicreates/context-grill/issues"
+
+[project.scripts]
+cgrill = "context_grill.cli:main"
+context-grill = "context_grill.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["context_grill"]

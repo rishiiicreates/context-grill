@@ -135,11 +135,14 @@ STATUS: LOCKED
 Install the skill directly across all your AI agent runtimes with one command:
 
 ```bash
-# Direct one-liner via curl:
-curl -fsSL https://raw.githubusercontent.com/rishiiicreates/context-grill/main/install-skill.sh | bash
+# With uv / uvx (fastest, zero-install):
+uvx context-grill skill install
 
-# Or instantly with npx:
+# Or with npx:
 npx context-grill skill install
+
+# Or direct one-liner via curl:
+curl -fsSL https://raw.githubusercontent.com/rishiiicreates/context-grill/main/install-skill.sh | bash
 
 # Or with native cgrill CLI:
 cgrill skill install --target all
@@ -152,17 +155,28 @@ cgrill skill status
 
 ---
 
-### Option 1: Native CLI Installer (macOS & Linux)
+### Option 1: uv / uvx (Modern Python / AI Developer Stack)
+```bash
+# Run instantly with uvx without installing:
+uvx context-grill scan "refactor auth logic"
+uvx context-grill env
+uvx context-grill mcp
+
+# Or install globally as a persistent tool:
+uv tool install context-grill
+```
+
+### Option 2: Native CLI Installer (macOS & Linux)
 ```bash
 curl -fsSL https://raw.githubusercontent.com/rishiiicreates/context-grill/main/install.sh | sh
 ```
 
-### Option 2: Cargo (from crates.io or GitHub)
+### Option 3: Cargo (from crates.io or GitHub)
 ```bash
 cargo install --git https://github.com/rishiicreates/context-grill.git cgrill-cli
 ```
 
-### Option 3: NPM / NPX (Zero-install executable)
+### Option 4: NPM / NPX (Zero-install executable)
 ```bash
 # Run instantly with npx
 npx context-grill scan "refactor auth logic"
